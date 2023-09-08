@@ -1,0 +1,66 @@
+#!/bin/bash
+# sync google drive with rclone
+
+sync_type=$1
+sync_data=$2
+
+sync_dir=$(dirname "$sync_data")
+sync_data=$(basename "$sync_data")
+
+drive_root="${HOME}/drive"
+ignore="${drive_root}/.driveignore"
+diff_file="${drive_root}/.diff"
+remote_dir=$(echo $PWD | sed "s+$drive_root++g")
+local_dir="./"
+if [[ $sync_dir != "." ]]; then
+    remote_dir="${remote_dir}/${sync_dir}"
+    local_dir="./${sync_dir}"
+fi
+sync_date=$(date "+%Y-%m-%d-%H-%M")
+
+if [[ "$PWD" != "$drive_root"* ]]; then
+    echo "not in drive directory"
+    exit 1
+fi
+
+
+if [[ "${sync_type}" = "push" ]]; then
+    if [ -d "$sync_data" ]; then
+        remote_dir="${remote_dir}/${sync_data}"
+    fi
+
+    rclone sync --dry-run -u -v $local_dir/$sync_data drive:$remote_dir --backup-dir drive:backup --suffix $sync_date --filter-from $ignore 2>&1 | sed "s/.* NOTICE:/-/g; s/Skipped//g; s/as --dry-run.*//g"
+
+    echo "Make changes (Y/n): "
+    read make_changes
+    if [[ $make_changes = "n" ]]; then
+        echo "sync aborted"
+        exit 0
+    else
+        rclone sync -P -u -v $local_dir/$sync_data drive:$remote_dir --backup-dir drive:backup --suffix $sync_date --filter-from $ignore
+    fi
+
+elif [[ "${sync_type}" = "pull" ]]; then
+    if rclone lsd drive:$remote_dir | grep -q " ${sync_data}$"; then
+        local_dir="${local_dir}/${sync_data}"
+    fi 
+
+    rclone sync --dry-run -u -v drive:$remote_dir/$sync_data $local_dir --backup-dir $drive_root/backup --suffix $sync_date --filter-from $ignore 2>&1 | sed "s/.* NOTICE:/-/g; s/Skipped//g; s/as --dry-run.*//g"
+    
+    echo "Make changes (Y/n): "
+    read make_changes
+    if [[ $make_changes = "n" ]]; then
+        echo "sync aborted"
+        exit 0
+    else
+        rclone sync -P -u -v drive:$remote_dir/$sync_data $local_dir --backup-dir $drive_root/backup --suffix $sync_date --filter-from $ignore
+    fi
+
+elif [[ "${sync_type}" = "ls" ]]; then
+    rclone lsf drive:$remote_dir/$sync_data
+elif [[ "${sync_type}" = "diff" ]]; then
+    rclone check ./$sync_data drive:$remote_dir/$sync_data --combined $diff_file --filter-from $ignore 2>/dev/null& cat $diff_file | grep "^[^=]"
+else
+    echo "wrong option $1, must be one of push, pull, ls, diff"
+    exit 1
+fi
