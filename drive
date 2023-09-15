@@ -31,9 +31,9 @@ if [[ "${sync_type}" = "push" ]]; then
 
     rclone sync --dry-run -u -v $local_dir/$sync_data drive:$remote_dir --backup-dir drive:backup --suffix $sync_date --filter-from $ignore 2>&1 | sed "s/.* NOTICE:/-/g; s/Skipped//g; s/as --dry-run.*//g"
 
-    echo "Make changes (Y/n): "
+    echo "Make changes (y/N): "
     read make_changes
-    if [[ $make_changes = "n" ]]; then
+    if [[ $make_changes != "y" ]]; then
         echo "sync aborted"
         exit 0
     else
@@ -47,9 +47,9 @@ elif [[ "${sync_type}" = "pull" ]]; then
 
     rclone sync --dry-run -u -v drive:$remote_dir/$sync_data $local_dir --backup-dir $drive_root/backup --suffix $sync_date --filter-from $ignore 2>&1 | sed "s/.* NOTICE:/-/g; s/Skipped//g; s/as --dry-run.*//g"
     
-    echo "Make changes (Y/n): "
+    echo "Make changes (y/N): "
     read make_changes
-    if [[ $make_changes = "n" ]]; then
+    if [[ $make_changes != "y" ]]; then
         echo "sync aborted"
         exit 0
     else
